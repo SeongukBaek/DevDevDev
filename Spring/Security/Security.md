@@ -12,6 +12,9 @@ TOC
     - [요구 사항 1.](#요구-사항-1)
       - [Spring Security 설정](#spring-security-설정)
     - [요구 사항 2.](#요구-사항-2)
+      - [비밀번호 암호화](#비밀번호-암호화)
+      - [DB 저장](#db-저장)
+  - [로그인](#로그인)
 - [참고](#참고)
 
 # 시작!
@@ -19,8 +22,8 @@ TOC
 SpringBoot를 이용해 여러 REST API를 구현한 경험은 있지만, 사용자 인증에 대한 구현 경험은 전무했다. 따라서 이에 대한 경험을 쌓고, 후에 Spring Security와 JWT를 활용하는데 도움이 되고자 한다.
 
 ## 목표
-- Spring Security를 통해 비밀번호를 암호화하여 DB에 저장
-- DB에 저장된 사용자의 계정과 비밀번호로 로그인
+- Spring Security를 통해 비밀번호를 암호화하여 **회원가입**
+- DB에 저장된 사용자의 계정과 비밀번호로 **로그인**
 - JWT를 사용하여 로그인한 사용자에게 토큰 발급
 - 인가된 토큰의 권한에 따라 API 접근 권한 제어
 - 로그인된 사용자의 정보를 토대로 동작하는 API 작성
@@ -47,8 +50,8 @@ CREATE TABLE IF NOT EXISTS `auth`.`user` (
   `user_id` VARCHAR(45) NOT NULL,
   `password` VARCHAR(200) NOT NULL,
   `user_name` VARCHAR(45) NOT NULL,
-  `join_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  `type` ENUM('BASIC', 'VIP') DEFAULT 'BASIC',
+  `join_time` TIMESTAMP,
+  `user_type` ENUM('BASIC', 'VIP'),
   PRIMARY KEY (`user_id`))
 ENGINE = InnoDB
 DEFAULT CHARACTER SET = utf8mb3;
@@ -179,6 +182,7 @@ You are asking Spring Security to ignore Ant [pattern='/signup']. This is not re
 - 잘 읽어보면, `HttpSecurity#authorizeHttpRequests` 의 `permitAll()` 을 사용하라는 권고이다. 따라서, `WebSecurity` 에 대한 메소드를 주석처리하면 없앨 수 있다.
 
 ### 요구 사항 2.
+#### 비밀번호 암호화
 사용자가 전송한 데이터(비밀번호)를 암호화하기 위해, Spring Security의 `BCryptPasswordEncoder` 를 사용한다.
 - 이를 사용하기 위해 설정 파일에서 해당 클래스를 **빈으로 등록**해줘야 한다.
 
@@ -207,7 +211,84 @@ public void signUp(@RequestBody SignUpDto signUpDto) {
 ~~~ AuthController : $2a$10$CqOUwrD3eBfBnpy3541Y4.v51ZSQEESb3PNx98S2af475GnbY2DMa
 ```
 
-다음과 같이 암호화가 되는 것을 확인했다!
+다음과 같이 암호화가 되는 것을 확인했다! 이제 암호화한 비밀번호와 함께 DB에 저장하자.
+
+#### DB 저장
+저장을 위해, 컨트롤러가 전달받은 사용자의 회원가입 정보는 다음과 같은 구조로 흘러가야할 것이다.
+
+```
+Controller -> Service -> Repository -> DB
+```
+
+- 따라서 필요한 Service, Repository를 구현한다.
+
+```java
+@Service
+@RequiredArgsConstructor
+public class AuthService {
+    private final AuthRepository authRepository;
+    private final PasswordEncoder encoder;
+
+    public void registerUser(SignUpDto signUpDto) {
+        // DB에 있는지 확인
+        if (authRepository.findByUserId(signUpDto.getUserId()).isPresent()) {
+            throw new IllegalArgumentException("이미 사용 중인 아이디입니다.");
+        }
+
+        // 없으면 회원 가입 진행
+        authRepository.save(User.from(signUpDto, encoder));
+    }
+}
+```
+
+- 서비스는 Dto로부터 `userId` 를 꺼내, DB에 저장된 `userId` 인지 확인한다.
+- 없는 `userId` 인 경우, 회원가입을 수행한다.
+
+```java
+@Entity
+@Getter
+@NoArgsConstructor
+public class User {
+    @Id
+    @Column(name = "user_id")
+    private String userId;
+
+    @Column(name = "password")
+    private String password;
+
+    @Column(name = "user_name")
+    private String userName;
+
+    @Column(name = "join_time")
+    private LocalDateTime joinTime;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "user_type")
+    private UserType userType;
+
+    public static User from(SignUpDto signUpDto, PasswordEncoder encoder) {
+        return new User(signUpDto.getUserId(), encoder.encode(signUpDto.getPassword()), signUpDto.getUserName(), UserType.BASIC);
+    }
+
+    public User(String userId, String password, String userName, UserType userType) {
+        this.userId = userId;
+        this.password = password;
+        this.userName = userName;
+        this.joinTime = LocalDateTime.now();
+        this.userType = userType;
+    }
+}
+```
+
+- `User` 클래스는 다음과 같다.
+- 여기서 한참 헤맸던 부분은, **`@Enumerated(EnumType.STRING)`** 이다.
+  - `UserType` 은 `"BASIC"`, `"VIP"` 로, 두 가지 문자열 값이 존재한다.
+  - 이를 문자열 형태로 저장하기 위해서, 위 어노테이션을 사용해야 했다.
+  - 만약 이를 사용하지 않으면 JPA는 기본적으로 열거형 값을 정수로 변환하여 데이터베이스에 저장한다고 한다...
+
+## 로그인
+이제 회원가입을 수행한 사용자가 로그인하는 상황이다.
+
 
 ---
 # 참고
