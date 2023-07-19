@@ -1,4 +1,0 @@
-# 각 테이블 설명
-user : 
-
-itinerarydetail
