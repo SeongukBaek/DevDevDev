@@ -7,14 +7,13 @@ TOC
 - [프로젝트 설정](#프로젝트-설정)
   - [사용할 스택](#사용할-스택)
   - [데이터 세팅](#데이터-세팅)
-- [기능 구현](#기능-구현)
-  - [회원 가입](#회원-가입)
-    - [요구 사항 1.](#요구-사항-1)
-      - [Spring Security 설정](#spring-security-설정)
-    - [요구 사항 2.](#요구-사항-2)
-      - [비밀번호 암호화](#비밀번호-암호화)
-      - [DB 저장](#db-저장)
-  - [로그인](#로그인)
+- [회원 가입](#회원-가입)
+  - [요구 사항 1.](#요구-사항-1)
+    - [Spring Security 설정](#spring-security-설정)
+  - [요구 사항 2.](#요구-사항-2)
+    - [비밀번호 암호화](#비밀번호-암호화)
+    - [DB 저장](#db-저장)
+- [로그인](#로그인)
 - [참고](#참고)
 
 # 시작!
@@ -66,8 +65,9 @@ DB 생성 후, 스프링 부트 애플리케이션을 실행시켜 반가운 화
 
 ![세팅완료](./images/start.png)
 
-# 기능 구현
-## 회원 가입
+---
+
+# 회원 가입
 우선, 회원 가입을 구현해야 이후의 처리를 할 수 있다. 따라서 회원 가입을 먼저 구현한다.
 
 **회원 가입의 요구 사항**은 다음과 같다.
@@ -76,7 +76,7 @@ DB 생성 후, 스프링 부트 애플리케이션을 실행시켜 반가운 화
 
 위 시나리오대로, 하나씩 구현해보자.
 
-### 요구 사항 1.
+## 요구 사항 1.
 먼저 사용자의 요청을 처리할 컨트롤러와, 사용자 입력 값을 담을 DTO를 생성한다.
 
 ```java
@@ -104,7 +104,7 @@ public class SignUpDto {
 
 **=> 회원가입이나, 로그인의 경우는 이러한 로그인이 없이(권한 없이)도 사용할 수 있는 기능이어야 한다. 따라서, Spring Security 설정에서 해당 요청에 대한 예외 처리를 수행하자.**
 
-#### Spring Security 설정
+### Spring Security 설정
 Security에 대한 설정을 위해, 이전에는 `WebSecurityConfigurerAdapter` 라는 추상 클래스를 상속받아 사용했다.
 - 하지만 스프링 부트 2.7 버전 이상부터는 지원이 중단되어 deprecated됨!
   - 컴포넌트 기반의 security 설정을 위함.
@@ -181,8 +181,8 @@ You are asking Spring Security to ignore Ant [pattern='/signup']. This is not re
 ```
 - 잘 읽어보면, `HttpSecurity#authorizeHttpRequests` 의 `permitAll()` 을 사용하라는 권고이다. 따라서, `WebSecurity` 에 대한 메소드를 주석처리하면 없앨 수 있다.
 
-### 요구 사항 2.
-#### 비밀번호 암호화
+## 요구 사항 2.
+### 비밀번호 암호화
 사용자가 전송한 데이터(비밀번호)를 암호화하기 위해, Spring Security의 `BCryptPasswordEncoder` 를 사용한다.
 - 이를 사용하기 위해 설정 파일에서 해당 클래스를 **빈으로 등록**해줘야 한다.
 
@@ -213,7 +213,7 @@ public void signUp(@RequestBody SignUpDto signUpDto) {
 
 다음과 같이 암호화가 되는 것을 확인했다! 이제 암호화한 비밀번호와 함께 DB에 저장하자.
 
-#### DB 저장
+### DB 저장
 저장을 위해, 컨트롤러가 전달받은 사용자의 회원가입 정보는 다음과 같은 구조로 흘러가야할 것이다.
 
 ```
@@ -286,9 +286,33 @@ public class User {
   - 이를 문자열 형태로 저장하기 위해서, 위 어노테이션을 사용해야 했다.
   - 만약 이를 사용하지 않으면 JPA는 기본적으로 열거형 값을 정수로 변환하여 데이터베이스에 저장한다고 한다...
 
-## 로그인
-이제 회원가입을 수행한 사용자가 로그인하는 상황이다.
+---
 
+# 로그인
+이제 회원가입을 수행한 사용자가 로그인하는 상황이다. 매우 간단하다. 
+
+**로그인의 요구 사항**은 다음과 같다.
+1. 사용자는 아이디, 비밀번호를 입력하고, 서버로 요청을 보낸다.
+2. 서버는 사용자의 정보가 DB에 저장된 것과 일치하는지 확인하고 로그인을 처리한다.
+
+근데, 사용자가 입력한 비밀번호는 **평문**이고, DB에 저장된 비밀번호는 **암호화된 값**이다. **두 값을 어떻게 비교할 수 있을까?**
+- 사용자의 입력 값을 암호화하여 비교할까??
+  - `PasswordEncoder` 가 제공하는 `encode()` 는 같은 값이라도 매번 다른 결과를 생성한다. 따라서 이런 방식은 불가능하다!
+
+이를 위해 `PasswordEncoder` 의 `matches()` 를 사용한다.
+
+```java
+public String login(SignInDto signInDto) {
+  Optional<User> user = authRepository.findByUserId(signInDto.getUserId());
+
+  if (user.isEmpty() || !encoder.matches(signInDto.getPassword(), user.get().getPassword())) {
+      throw new IllegalArgumentException("아이디 또는 비밀번호가 일치하지 않습니다.");
+  }
+
+  // 일치하는 경우 -> 로그인 가능!
+  return "Hello " + user.get().getUserName();
+}
+```
 
 ---
 # 참고
