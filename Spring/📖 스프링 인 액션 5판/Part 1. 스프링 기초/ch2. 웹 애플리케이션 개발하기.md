@@ -10,6 +10,8 @@
   - [폼과 바인딩될 때 유효성 검사 수행하기](#폼과-바인딩될-때-유효성-검사-수행하기)
   - [유효성 검사 에러 보여주기](#유효성-검사-에러-보여주기)
 - [뷰 컨트롤러로 작업하기](#뷰-컨트롤러로-작업하기)
+- [뷰 템플릿 라이브러리 선택하기](#뷰-템플릿-라이브러리-선택하기)
+  - [템플릿 캐싱](#템플릿-캐싱)
 
 ---
 
@@ -288,3 +290,46 @@ Thymeleaf는 `fields` 와 `th:errors` 속성을 통해 `Errors` 객체의 편리
 - 폼 제출 시, 해당 에러 발생 문구를 보여주게 된다.
 
 # 뷰 컨트롤러로 작업하기
+현재까지 3개의 컨트롤러가 있었다.
+- 그 중, `HomeController` 는 모델 데이터나 사용자 입력을 처리하지 않는 간단한 컨트롤러였다.
+
+이처럼 뷰에 요청을 전달하는 일만 하는 컨트롤러를 **뷰 컨트롤러**라고 한다.
+- `HomeController` 는 뷰 컨트롤러로 처리해보자.
+
+```java
+@Configuration
+public class WebConfig implements WebMvcConfigurer {
+    @Override
+    public void addViewControllers(ViewControllerRegistry registry) {
+        registry.addViewController("/").setViewName("home");
+    }
+}
+```
+- `WebMvcConfigurer`: 스프링 MVC를 구성하는 메소드를 정의한 인터페이스.
+  - 대부분 `default` 메소드로 제공되어서, 우리는 필요한 메소드만 선택 오버라이딩하면 된다.
+- `addViewControllers()`: 하나 이상의 뷰 컨트롤러를 등록 시 사용하는 메소드.
+  - 이를 통해, `"/"` 로의 **GET 요청**에 대한 뷰로 `"home"` 을 지정!
+
+# 뷰 템플릿 라이브러리 선택하기
+스프링은 다양한 뷰 템플릿을 지원한다.
+- FreeMarker
+- Groovy
+- JSP -> 스프링 부트 스타터 의존성 없음.
+- Mustache
+- Thymeleaf
+
+JSP는 서블릿 컨테이너(기본. 톰캣) 자신이 JSP 명세를 구현하고 있어, 스타터로 지정될 필요가 없다.
+- 하지만 자바 서블릿 컨테이너는 JSP 코드 스캔 위치가 `/WEB-INF` 부터이다.
+  - JAR 파일로 실행 파일을 생성하면, 이를 충족시킬 수 없어, 빌드 파일을 WAR로 생성하고, 서블릿 컨테이너에 이를 옮겨 실행하는 방식이 되어야 한다.
+
+> **[Mustache](https://velog.io/@nyong_i/%EB%A8%B8%EC%8A%A4%ED%85%8C%EC%B9%98Mustache%EB%9E%80-%EB%AC%B4%EC%97%87%EC%9D%B8%EA%B0%80)**
+> - Thymeleaf에 비해, 문법이 쉽다.
+> - 서버와 뷰의 역할이 명확히 나뉜다.
+
+## 템플릿 캐싱
+템플릿은 최초 사용 시 한 번만 파싱되고, 이를 캐싱해서 재사용한다.
+- 이는 성능을 향상시키는 요인 중 하나이다.
+
+하지만 앞서 언급했듯, 개발환경에서는 이러한 특징이 불필요할 수가 있다.
+- 따라서 각 템플릿의 캐싱 속성을 비활성화하는 방법을 당연히 제공한다.
+- `application.properties` -> `spring.thymeleaf.cache=false`
