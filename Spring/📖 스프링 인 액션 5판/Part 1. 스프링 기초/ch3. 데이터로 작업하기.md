@@ -403,3 +403,17 @@ private long saveTacoInfo(Taco taco) {
 
 # 스프링 데이터 JPA를 사용해서 데이터 저장하고 사용하기
 - [serialVersionUID](https://hjjungdev.tistory.com/187)
+
+```
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+logging.level.org.hibernate.type.descriptor.sql=trace
+```
+- 사용하는 SQL을 보기 좋게, 그리고 파라미터에 어떤 값들이 들어가는지 보여주는 속성
+
+```java
+@Enumerated(EnumType.STRING)
+private final Type type;
+```
+- `enum` 에 대해서, 위와 같은 어노테이션이 없다면, `enum` 값을 인덱스(`double`)로 가져와 SQL에서 사용하기 때문에 `NumberFormatException` 이 발생한다.
+- `enum` 에 대해서 그 값을 그대로 저장하고 사용하려면 꼭 해당 어노테이션이 필요.
