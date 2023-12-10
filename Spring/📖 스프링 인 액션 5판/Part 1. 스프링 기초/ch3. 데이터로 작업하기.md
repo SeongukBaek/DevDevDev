@@ -10,6 +10,7 @@
     - [SimpleJdbcInsert를 사용해서 데이터 추가하기](#simplejdbcinsert를-사용해서-데이터-추가하기)
   - [이슈](#이슈)
 - [스프링 데이터 JPA를 사용해서 데이터 저장하고 사용하기](#스프링-데이터-jpa를-사용해서-데이터-저장하고-사용하기)
+  - [궁금증](#궁금증)
 ---
 
 # JDBC를 사용해서 데이터 읽고 쓰기
@@ -417,3 +418,8 @@ private final Type type;
 ```
 - `enum` 에 대해서, 위와 같은 어노테이션이 없다면, `enum` 값을 인덱스(`double`)로 가져와 SQL에서 사용하기 때문에 `NumberFormatException` 이 발생한다.
 - `enum` 에 대해서 그 값을 그대로 저장하고 사용하려면 꼭 해당 어노테이션이 필요.
+
+## 궁금증
+> Modifier 'static' is redundant for inner enums
+
+- enum 클래스가 중첩 클래스로 적용된 경우, 내부적으로 이는 static하기 때문에, 해당 키워드를 제거할 수 있다고 한다.
