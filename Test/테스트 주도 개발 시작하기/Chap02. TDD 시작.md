@@ -81,3 +81,79 @@ class PasswordStrengthMeterTest {
 ```
 
 </details>
+
+한 가지 조건만 충족하는 경우를 거르는 프로덕션 코드를 아래와 같이 작성했다. (한 가지 조건만 충족하는 경우 == 암호 강도 `WEAK`)
+```kotlin
+fun meter(input: String?): PasswordStrength {
+    if (input.isNullOrBlank()) {
+        return PasswordStrength.INVALID
+    }
+    val containsNumber = meetsContainingNumberCriteria(input)
+    val containsUppercase = meetsContainingUppercaseCriteria(input)
+    val lengthEnough = input.length >= 8
+
+    if (lengthEnough && !containsNumber && !containsUppercase) {
+        return PasswordStrength.WEAK
+    }
+    if (!lengthEnough && containsNumber && !containsUppercase) {
+        return PasswordStrength.WEAK
+    }
+    if (!lengthEnough && !containsNumber && containsUppercase) {
+        return PasswordStrength.WEAK
+    }
+
+    if (!lengthEnough) {
+        return PasswordStrength.NORMAL
+    }
+    if (!containsNumber) {
+        return PasswordStrength.NORMAL
+    }
+    if (!containsUppercase) {
+        return PasswordStrength.NORMAL
+    }
+
+    return PasswordStrength.STRONG
+}
+```
+- `WEAK` 를 return 하는 곳이 3군데나 된다. 충족하는 조건 개수를 계산하는 방식으로 개선하자.
+
+```kotlin
+fun meter(input: String?): PasswordStrength {
+    if (input.isNullOrBlank()) {
+        return PasswordStrength.INVALID
+    }
+    var meetCounts = 0
+    if (meetsContainingNumberCriteria(input)) {
+        meetCounts++
+    }
+    if (meetsContainingUppercaseCriteria(input)) {
+        meetCounts++
+    }
+    if (input.length >= 8) {
+        meetCounts++
+    }
+
+    if (meetCounts == 1) {
+        return PasswordStrength.WEAK
+    }
+    if (meetCounts == 2) {
+        return PasswordStrength.NORMAL
+    }
+
+    return PasswordStrength.STRONG
+}
+```
+- 위와 같이 개선해서, **충족하는 조건 개수에 따른 암호 강도를 직관적으로 확인**까지 할 수 있게 되었다.
+- 그리고 **`meetCounts` 를 계산하는 로직을 함수로 빼서**, 좀 더 직관적인 코드로 만들 수 있다.
+
+> **TDD** 는 테스트를 먼저 작성하고, 테스트를 통과시킬 만큼 코드를 작성하고 리팩토링으로 마무리하는 과정을 반복한다.
+> - 이를 **레드-그린-리팩터** 라고도 한다.
+> - 레드 : 실패하는 테스트
+> - 그린 : 성공한 테스트
+> - 리팩터 : 리팩토링
+
+테스트 코드를 만들고, 해당 테스트 코드가 커버하는 범위까지만 개발한다. 이를 통해 개발 범위가 결정된다. => **테스트가 개발을 주도**
+
+TDD 는 개발 과정에서 지속적인 코드 정리를 하기에, 향후 유지보수 비용을 낮추는데 기여한다.
+
+또한 코드 수정에 대한 피드백이 빨라서, 새로운 코드 추가나 기존 코드 수정 시, 테스트 코드를 통해 해당 코드의 오류를 바로 확인할 수 있다.
