@@ -74,3 +74,51 @@ class MemoryAutoDebitInfoRepository : AutoDebitInfoRepository {
 ```
 - DB 대신 Map을 이용해 자동이체 정보를 저장한다.
   - 메모리에만 저장하기에 DB와 같은 영속성은 제공되지 않지만, 테스트는 가능하다.
+
+=> 두 케이스 모두 실제 필요한 외부 요인 없이 테스트를 완료
+
+# 대역의 종류
+스텁(Stub) : 단순한 구현으로 대체. 위에서의 StubCardNumberValidator 
+가짜(Fake) : 프로덕션용은 아니지만 실제 동작하는 구현. 위에서의 MemoryAutoDebitInfoRepository
+스파이(Spy) : 호출된 내역을 기록하는 일종의 스텁. 기록한 내용은 테스트 결과 검증 시 사용
+모의(Mock) : 기대한 대로 상호작용하는지 행위를 검증. 스텁이면서 스파이일 수 있음
+
+> 회원가입 기능 테스트를 위해 위 종류의 대역들을 사용
+> - 회원 가입 핵심 로직 (UserRegister)
+> - 약한 암호 확인 (StubWeakPasswordChecker)
+> - 회원 정보 저장 및 조회 ()
+> - 이메일 발송
+
+## 약한 암호 확인 - 스텁
+WeakPasswordChecker 인터페이스 -> 상속 -> StubWeakPasswordChecker 스텁
+
+1. UserRegister에서 사용할 패스워드 강도 확인 메소드를 WeakPasswordChecker에 정의
+2. WeakPasswordChecker를 상속받는 스텁 클래스에서 해당 메소드를 구현
+3. Setter에 따라 의도한 결과 반환 테스트
+
+## 리포지토리를 가짜 구현 - 가짜
+UserRepository 인터페이스 -> 상속 -> MemoryUserRepository 가짜
+
+1. 사용자를 메모리에 저장하고 조회하는 가짜 리포지토리 생성
+2. 테스트 시, 확인할 사용자 객체를 가짜 리포지토리에 저장한 후 테스트
+
+## 이메일 발송 여부 파악 - 스파이
+이메일 발송 여부 파악은 어떻게 ?
+- 회원 가입 성공 후, 이메일 발송 기능 실행 시, 이메일 주소로 email@somedomain.com을 사용했는지 확인.
+
+EmailNotifier 인터페이스 -> SpyEmailNotifier 스파이
+- 해당 스파이는 호출되었는지 여부와, 호출 시 사용하는 이메일 필드를 가짐
+
+1. 회원 가입 시, 이메일 발송 기능 실행
+2. 발송 후, 발송된 이메일에 대한 체크 수행
+3. 테스트 시, 가입 요청된 이메일에 대해 메일 발송이 체크되었는지 확인
+
+## 스텁과 스파이 대체 - 모의
+Mockito 사용
+- StubWeakPasswordChecker -> Mockito.mock(WeakPasswordChecker)
+- SpyEmailNotifier -> Mockito.mock(EmailNotifier)
+
+Mockito.given() : 모의 객체가 특정 행동을 수행하도록 설정
+Mockkito.then().should() : 모의 객체가 특정 메소드를 수행했는지 검증
+ArgumentCaptor : 메소드 호출 시, 전달한 객체를 가져오는 기능 제공
+- captor.capture()로 보관한 값을 captor.getValue()로 가져와서 사용
